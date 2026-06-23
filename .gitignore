@@ -1,0 +1,64 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+*.whl
+
+# ===== Virtual Environments =====
+venv/
+.venv/
+env/
+ENV/
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# ===== Environment & Secrets =====
+.env
+.env.local
+.env.production
+*.pem
+*.key
+
+# ===== Data Files (do not commit raw data) =====
+data/**
+!data/**/
+!data/**/.gitkeep
+
+# ===== Docker =====
+docker-compose.override.yml
+*.log
+
+# ===== PostgreSQL =====
+pgdata/
+
+# ===== Airflow =====
+logs/
+airflow-webserver.pid
+
+# ===== Testing =====
+.coverage
+htmlcov/
+.pytest_cache/
+coverage.xml
+
+# ===== Misc =====
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+
+# ===== Grafana =====
+grafana_data/

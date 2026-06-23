@@ -1,0 +1,153 @@
+# ==============================================================================
+# Energy Analytics Pipeline — Docker Compose (Local Development)
+# ==============================================================================
+# Usage:
+#   docker compose up -d          Start all services
+#   docker compose down           Stop all services
+#   docker compose down -v        Stop and remove volumes (DESTRUCTIVE)
+#   docker compose logs -f        Tail all logs
+# ==============================================================================
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: docker/airflow/Dockerfile
+  environment: &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+    AIRFLOW__CORE__FERNET_KEY: 'zTvhk3pVnBm3hJ2CKtRqpO_X9b4fGjLHs8uNLXkMc6E='
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
+    AIRFLOW__LOGGING__LOGGING_LEVEL: 'INFO'
+    # Energy pipeline config passed to DAGs
+    ENERGY_DB_HOST: energy-postgres
+    ENERGY_DB_PORT: '5432'
+    ENERGY_DB_NAME: energy_db
+    ENERGY_DB_USER: energy_user
+    ENERGY_DB_PASSWORD: energy_pass
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./src:/opt/airflow/src
+    - ./sql:/opt/airflow/sql
+    - ./config:/opt/airflow/config
+    - ./data:/opt/airflow/data
+    - ./scripts:/opt/airflow/scripts
+    - ./logs:/opt/airflow/logs
+  depends_on:
+    airflow-postgres:
+      condition: service_healthy
+    energy-postgres:
+      condition: service_healthy
+
+services:
+  # ===========================================================================
+  # DATABASES
+  # ===========================================================================
+
+  energy-postgres:
+    image: postgres:15
+    container_name: energy-postgres
+    environment:
+      POSTGRES_DB: energy_db
+      POSTGRES_USER: energy_user
+      POSTGRES_PASSWORD: energy_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - energy_pg_data:/var/lib/postgresql/data
+      - ./sql/schema:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U energy_user -d energy_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  airflow-postgres:
+    image: postgres:15
+    container_name: airflow-postgres
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+    volumes:
+      - airflow_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ===========================================================================
+  # APACHE AIRFLOW
+  # ===========================================================================
+
+  airflow-init:
+    <<: *airflow-common
+    container_name: airflow-init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@example.com || true
+        airflow connections add 'energy_postgres' \
+          --conn-type 'postgres' \
+          --conn-host 'energy-postgres' \
+          --conn-port 5432 \
+          --conn-login 'energy_user' \
+          --conn-password 'energy_pass' \
+          --conn-schema 'energy_db' || true
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: airflow-webserver
+    command: airflow webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: airflow-scheduler
+    command: airflow scheduler
+    restart: unless-stopped
+
+  # ===========================================================================
+  # MONITORING
+  # ===========================================================================
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+
+volumes:
+  energy_pg_data:
+    name: energy_pg_data
+  airflow_pg_data:
+    name: airflow_pg_data
+  grafana_data:
+    name: grafana_data
