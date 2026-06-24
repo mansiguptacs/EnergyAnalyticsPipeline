@@ -87,6 +87,12 @@ run-pipeline: ## Run the ingestion pipeline (loads sample data into raw layer)
 		--db-conn "postgresql://energy_user:energy_pass@energy-postgres:5432/energy_db"
 	@echo "✅ Pipeline complete!"
 
+trigger-ingest: ## Trigger the Airflow ingestion DAG
+	docker compose exec airflow-scheduler airflow dags trigger ingest_pipeline
+
+trigger-transform: ## Trigger the Airflow transformation DAG
+	docker compose exec airflow-scheduler airflow dags trigger transform_pipeline
+
 # ==============================================================================
 # Development
 # ==============================================================================

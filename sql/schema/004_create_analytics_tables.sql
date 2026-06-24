@@ -118,7 +118,9 @@ CREATE TABLE IF NOT EXISTS analytics.fact_consumption (
 
     -- Lineage
     _stg_id         BIGINT      NOT NULL,
-    _loaded_at      TIMESTAMP   NOT NULL DEFAULT NOW()
+    _loaded_at      TIMESTAMP   NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT uq_fact_consumption UNIQUE (meter_key, date_key, time_key)
 );
 
 COMMENT ON TABLE analytics.fact_consumption IS 'Central fact table – grain: one row per (meter, 15-minute reading).';

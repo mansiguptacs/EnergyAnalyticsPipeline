@@ -9,6 +9,37 @@ Fixtures:
 
 from __future__ import annotations
 
+import sys
+from unittest.mock import MagicMock
+
+# Mock airflow modules if not installed locally to allow unit testing without airflow package overhead
+try:
+    import airflow
+except ImportError:
+    class MockAirflowSkipException(Exception):
+        pass
+
+    mock_airflow = MagicMock()
+    mock_airflow.exceptions.AirflowSkipException = MockAirflowSkipException
+    
+    mock_operators = MagicMock()
+    mock_postgres = MagicMock()
+    mock_utils = MagicMock()
+    
+    # Mock TriggerRule.NONE_FAILED
+    mock_utils.trigger_rule.TriggerRule.NONE_FAILED = "none_failed"
+    
+    sys.modules['airflow'] = mock_airflow
+    sys.modules['airflow.exceptions'] = mock_airflow.exceptions
+    sys.modules['airflow.operators'] = mock_operators
+    sys.modules['airflow.operators.python'] = mock_operators.python
+    sys.modules['airflow.providers'] = mock_postgres
+    sys.modules['airflow.providers.postgres'] = mock_postgres.postgres
+    sys.modules['airflow.providers.postgres.hooks'] = mock_postgres.postgres.hooks
+    sys.modules['airflow.providers.postgres.hooks.postgres'] = mock_postgres.postgres.hooks.postgres
+    sys.modules['airflow.utils'] = mock_utils
+    sys.modules['airflow.utils.trigger_rule'] = mock_utils.trigger_rule
+
 import csv
 import uuid
 from pathlib import Path
